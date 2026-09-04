@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Canopy Ledger — Parcel Registration</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1F3327;
+    --paper:#EEF0E6;
+    --paper-raised:#E4E7D8;
+    --rule:#C7CBB6;
+    --canopy:#3F7A4E;
+    --canopy-dark:#2A5636;
+    --soil:#A6672D;
+    --soil-dark:#7C4C1F;
+    --muted:#5B6656;
+    --danger:#A3392D;
+    --font-serif:'Fraunces', serif;
+    --font-sans:'IBM Plex Sans', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--font-sans);}
+  .app{display:grid;grid-template-columns:1.5fr 1fr;min-height:100vh;}
+  @media (max-width:920px){.app{grid-template-columns:1fr;}}
+
+  /* ---------- left: map hero ---------- */
+  .map-pane{position:relative;background:var(--paper-raised);border-right:1px solid var(--rule);}
+  #map{position:absolute;inset:0;}
+  .map-header{position:absolute;top:0;left:0;right:0;z-index:500;padding:20px 24px 14px;
+    background:linear-gradient(to bottom, rgba(238,240,230,0.96) 60%, rgba(238,240,230,0));
+    pointer-events:none;}
+  .map-header .title{font-family:var(--font-serif);font-weight:500;font-size:26px;letter-spacing:-0.01em;margin:0;}
+  .map-header .sub{font-size:13.5px;color:var(--muted);margin:4px 0 0;max-width:46ch;line-height:1.5;}
+  .map-legend{position:absolute;bottom:20px;left:24px;z-index:500;background:var(--paper);
+    border:1px solid var(--rule);padding:10px 14px;font-size:12.5px;color:var(--muted);
+    display:flex;gap:16px;align-items:center;}
+  .map-legend b{color:var(--ink);font-weight:500;}
+
+  /* ---------- right: ledger panel ---------- */
+  .panel{padding:28px 32px 60px;overflow-y:auto;max-height:100vh;}
+  .panel-eyebrow{font-size:12.5px;color:var(--muted);margin:0 0 2px;}
+  .panel h1{font-family:var(--font-serif);font-weight:500;font-size:22px;margin:0 0 22px;}
+
+  .field-row{display:flex;flex-direction:column;gap:6px;padding:14px 0;border-bottom:1px solid var(--rule);}
+  .field-row label{font-size:12.5px;color:var(--muted);}
+  .field-row input, .field-row select{
+    font-family:var(--font-sans);font-size:15px;color:var(--ink);border:none;background:transparent;
+    padding:2px 0;outline:none;
+  }
+  .field-row input::placeholder{color:#93998A;}
+  .field-row.focus{border-bottom-color:var(--canopy);}
+
+  .wallet-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid var(--rule);}
+  .wallet-addr{font-family:var(--font-mono);font-size:13px;color:var(--muted);}
+  .btn{font-family:var(--font-sans);font-size:13.5px;font-weight:500;border:1px solid var(--ink);
+    background:transparent;color:var(--ink);padding:8px 14px;cursor:pointer;border-radius:2px;}
+  .btn:hover{background:var(--ink);color:var(--paper);}
+  .btn-soil{border-color:var(--soil-dark);color:var(--soil-dark);}
+  .btn-soil:hover{background:var(--soil-dark);color:var(--paper);}
+  .btn-primary{background:var(--canopy-dark);border-color:var(--canopy-dark);color:var(--paper);width:100%;padding:13px;font-size:14.5px;margin-top:22px;}
+  .btn-primary:hover{background:var(--canopy);border-color:var(--canopy);}
+  .btn-primary:disabled{opacity:0.45;cursor:not-allowed;background:var(--canopy-dark);}
+
+  .ledger{margin-top:26px;}
+  .ledger-title{font-size:12.5px;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between;}
+  .ledger-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px dotted var(--rule);}
+  .ledger-row .k{font-size:13.5px;color:var(--muted);}
+  .ledger-row .v{font-family:var(--font-mono);font-size:15px;color:var(--ink);}
+  .ledger-row .v.canopy{color:var(--canopy-dark);font-weight:500;}
+  .ledger-note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6;}
+
+  .status{font-size:13px;margin-top:14px;padding:10px 12px;border-left:2px solid var(--rule);display:none;}
+  .status.show{display:block;}
+  .status.ok{border-left-color:var(--canopy-dark);color:var(--canopy-dark);}
+  .status.err{border-left-color:var(--danger);color:var(--danger);}
+  .status.info{border-left-color:var(--soil-dark);color:var(--soil-dark);}
+
+  .err-text{font-size:12px;color:var(--danger);display:none;}
+  .err-text.show{display:block;}
+
+  .leaflet-draw-toolbar a{background-color:var(--paper) !important;}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="map-pane">
+    <div id="map"></div>
+    <div class="map-header">
+      <p class="panel-eyebrow" style="pointer-events:none;">Canopy Ledger</p>
+      <h1 class="title">Trace your parcel boundary</h1>
+      <p class="sub">Use the polygon tool on the map to outline the land you're registering. Vegetation cover is read from satellite imagery once you submit.</p>
+    </div>
+    <div class="map-legend">
+      <span><b id="area-out">0.00 ha</b> traced</span>
+      <span id="vertex-out">0 points</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-eyebrow">Parcel registration</p>
+    <h1>Owner details</h1>
+
+    <div class="field-row">
+      <label for="ownerName">Full name</label>
+      <input id="ownerName" type="text" placeholder="As it appears on your land title" />
+    </div>
+    <div class="field-row">
+      <label for="parcelName">Parcel name or reference</label>
+      <input id="parcelName" type="text" placeholder="e.g. Riverside Plot 4" />
+    </div>
+    <div class="field-row">
+      <label for="titleId">Land title / registration number</label>
+      <input id="titleId" type="text" placeholder="Official parcel or title ID" />
+    </div>
+    <div class="field-row">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="name@example.com" />
+    </div>
+    <div class="field-row">
+      <label for="country">Country</label>
+      <input id="country" type="text" placeholder="Country the parcel is located in" />
+    </div>
+    <p class="err-text" id="formError">Fill in your name, a parcel reference, and trace a boundary before submitting.</p>
+
+    <div class="wallet-box">
+      <div>
+        <label style="font-size:12.5px;color:var(--muted);display:block;margin-bottom:4px;">Payout wallet (L2)</label>
+        <span class="wallet-addr" id="walletAddr">Not connected</span>
+      </div>
+      <button class="btn btn-soil" id="connectWallet">Connect wallet</button>
+    </div>
+
+    <button class="btn-primary" id="submitBtn" disabled>Trace a boundary to continue</button>
+    <div class="status" id="statusBox"></div>
+
+    <div class="ledger">
+      <p class="ledger-title"><span>Preliminary estimate</span><span>desktop preview</span></p>
+      <div class="ledger-row"><span class="k">Parcel area</span><span class="v" id="ledgerArea">—</span></div>
+      <div class="ledger-row"><span class="k">Mean NDVI (mock)</span><span class="v" id="ledgerNdvi">—</span></div>
+      <div class="ledger-row"><span class="k">Est. carbon stock</span><span class="v" id="ledgerCarbon">—</span></div>
+      <div class="ledger-row"><span class="k">Est. credits payable</span><span class="v canopy" id="ledgerCredits">—</span></div>
+      <p class="ledger-note">This estimate is generated in your browser from a placeholder formula, not from satellite data. Submitting sends your boundary to the verification backend, which runs the real Earth Engine classification and NDVI analysis before any credits are calculated on-chain.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script>
+  const API_BASE_URL = "https://your-carbon-mrv-api.example.com";
+
+  const map = L.map('map', {zoomControl:true}).setView([-1.286389, 36.817223], 13);
+  L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: 'Map data: OpenStreetMap contributors, SRTM | Map style: OpenTopoMap'
+  }).addTo(map);
+
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  const drawControl = new L.Control.Draw({
+    draw:{
+      polygon:{allowIntersection:false, showArea:true, shapeOptions:{color:'#2A5636', weight:2}},
+      polyline:false, rectangle:false, circle:false, marker:false, circlemarker:false
+    },
+    edit:{ featureGroup: drawnItems, remove:true }
+  });
+  map.addControl(drawControl);
+
+  let currentPolygon = null;
+  let walletAddress = null;
+
+  function metersAreaOfLatLngs(latlngs){
+    // Shoelace formula on an equirectangular projection, adequate for small parcels.
+    const R = 6378137;
+    const toRad = d => d * Math.PI / 180;
+    let area = 0;
+    const pts = latlngs.map(p => ({
+      x: toRad(p.lng) * R * Math.cos(toRad(p.lat)),
+      y: toRad(p.lat) * R
+    }));
+    for (let i = 0; i < pts.length; i++){
+      const j = (i + 1) % pts.length;
+      area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+    }
+    return Math.abs(area / 2);
+  }
+
+  function mockNdviForCentroid(lat, lng){
+    // Deterministic pseudo-random NDVI in a plausible vegetated range (0.35-0.75),
+    // purely so the UI has something to preview before the real classification runs.
+    const seed = Math.abs(Math.sin(lat * 12.9898 + lng * 78.233) * 43758.5453);
+    const frac = seed - Math.floor(seed);
+    return 0.35 + frac * 0.4;
+  }
+
+  function updateEstimate(){
+    const submitBtn = document.getElementById('submitBtn');
+    if (!currentPolygon){
+      document.getElementById('area-out').textContent = '0.00 ha';
+      document.getElementById('vertex-out').textContent = '0 points';
+      document.getElementById('ledgerArea').textContent = '—';
+      document.getElementById('ledgerNdvi').textContent = '—';
+      document.getElementById('ledgerCarbon').textContent = '—';
+      document.getElementById('ledgerCredits').textContent = '—';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Trace a boundary to continue';
+      return;
+    }
+    const latlngs = currentPolygon.getLatLngs()[0];
+    const areaM2 = metersAreaOfLatLngs(latlngs);
+    const areaHa = areaM2 / 10000;
+    const centroid = currentPolygon.getBounds().getCenter();
+    const ndvi = mockNdviForCentroid(centroid.lat, centroid.lng);
+
+    // Placeholder biomass/carbon formula for UI preview only — see
+    // backend/carbon_credit_calculator.py for the methodology actually used
+    // once real NDVI and classification results come back.
+    const tonsCarbonPerHa = ndvi * 40;
+    const totalCarbonTons = tonsCarbonPerHa * areaHa;
+    const co2eTons = totalCarbonTons * 3.67;
+    const credits = co2eTons; // 1 credit ≈ 1 tCO2e, before any buffer/discount
+
+    document.getElementById('area-out').textContent = areaHa.toFixed(2) + ' ha';
+    document.getElementById('vertex-out').textContent = latlngs.length + ' points';
+    document.getElementById('ledgerArea').textContent = areaHa.toFixed(2) + ' ha';
+    document.getElementById('ledgerNdvi').textContent = ndvi.toFixed(3);
+    document.getElementById('ledgerCarbon').textContent = totalCarbonTons.toFixed(1) + ' tC';
+    document.getElementById('ledgerCredits').textContent = '~' + credits.toFixed(1) + ' credits';
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit for satellite verification';
+  }
+
+  map.on(L.Draw.Event.CREATED, (e) => {
+    drawnItems.clearLayers();
+    drawnItems.addLayer(e.layer);
+    currentPolygon = e.layer;
+    updateEstimate();
+  });
+  map.on(L.Draw.Event.EDITED, () => {
+    drawnItems.eachLayer(l => currentPolygon = l);
+    updateEstimate();
+  });
+  map.on(L.Draw.Event.DELETED, () => {
+    currentPolygon = null;
+    updateEstimate();
+  });
+
+  document.getElementById('connectWallet').addEventListener('click', async () => {
+    const statusBox = document.getElementById('statusBox');
+    if (!window.ethereum){
+      statusBox.className = 'status show err';
+      statusBox.textContent = 'No wallet extension detected. Install a wallet such as MetaMask, set it to your Layer 2 network, then retry.';
+      return;
+    }
+    try{
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const accounts = await provider.send('eth_requestAccounts', []);
+      walletAddress = accounts[0];
+      document.getElementById('walletAddr').textContent =
+        walletAddress.slice(0,6) + '…' + walletAddress.slice(-4);
+      const network = await provider.getNetwork();
+      statusBox.className = 'status show info';
+      statusBox.textContent = 'Connected on network ' + network.chainId + '. Credits will be paid to this address once your parcel is verified.';
+    }catch(err){
+      statusBox.className = 'status show err';
+      statusBox.textContent = 'Wallet connection was cancelled or failed.';
+    }
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const ownerName = document.getElementById('ownerName').value.trim();
+    const parcelName = document.getElementById('parcelName').value.trim();
+    const titleId = document.getElementById('titleId').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const country = document.getElementById('country').value.trim();
+    const errText = document.getElementById('formError');
+    const statusBox = document.getElementById('statusBox');
+
+    if (!ownerName || !parcelName || !currentPolygon){
+      errText.classList.add('show');
+      return;
+    }
+    errText.classList.remove('show');
+
+    const latlngs = currentPolygon.getLatLngs()[0].map(p => [p.lng, p.lat]);
+    latlngs.push(latlngs[0]);
+
+    const payload = {
+      owner: { name: ownerName, email, country, wallet_address: walletAddress },
+      parcel: { name: parcelName, title_id: titleId,
+        boundary: { type: 'Polygon', coordinates: [latlngs] } }
+    };
+
+    statusBox.className = 'status show info';
+    statusBox.textContent = 'Submitting boundary to the verification service…';
+
+    try{
+      const res = await fetch(API_BASE_URL + '/api/parcels/submit', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Server responded with ' + res.status);
+      const data = await res.json();
+      statusBox.className = 'status show ok';
+      statusBox.textContent = 'Parcel ' + (data.parcel_id || '') + ' submitted. You will be notified once NDVI classification and carbon credit issuance complete.';
+    }catch(err){
+      statusBox.className = 'status show err';
+      statusBox.textContent = 'Could not reach the verification backend (' + err.message + '). Set API_BASE_URL in this file to your deployed backend/api.py endpoint.';
+    }
+  });
+
+  updateEstimate();
+</script>
+
+</body>
+</html>
