@@ -1,6 +1,6 @@
 # Canopy Ledger — parcel-based carbon credit MRV prototype
 
-An end-to-end technical prototype: a parcel owner draws their land boundary in a
+An end-to-end technical prototype: a parcel owner feeds their .shp land boundary in a
 browser, a backend runs Google Earth Engine NDVI analysis and land-cover
 classification over that boundary, a carbon credit amount is calculated, and
 credits are minted to the owner's wallet by a smart contract on a Layer 2 chain.
@@ -8,7 +8,7 @@ credits are minted to the owner's wallet by a smart contract on a Layer 2 chain.
 ## Architecture
 
 ```
-frontend/index.html        Map UI: draw parcel boundary, enter owner details,
+frontend/index.html        Map UI: .shp parcel boundary, enter owner details,
                             connect wallet, submit for verification.
                                 |
                                 v
