@@ -1,3 +1,4 @@
+// This Deploys the smartcontract on the ethereum network
 const hre = require("hardhat");
 
 async function main() {
