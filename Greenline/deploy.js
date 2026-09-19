@@ -1,5 +1,6 @@
 // This Deploys the smartcontract on the ethereum network
 const hre = require("hardhat");
+// Deploying with ether
 
 async function main() {
   const [deployer] = await hre.ethers.getSigners();
